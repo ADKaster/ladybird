@@ -29,6 +29,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(cmake/EnableLLD.cmake)
 
+# FIXME: Create custom Qt build with threading enabled
+if (EMSCRIPTEN)
+    add_link_options(--emrun "SHELL:-s ENVIRONMENT=node")
+endif()
+
 if (ENABLE_ADDRESS_SANITIZER)
     add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
     add_link_options(-fsanitize=address)
@@ -43,6 +48,10 @@ if (ENABLE_UNDEFINED_SANITIZER)
     add_compile_options(-fsanitize=undefined -fno-omit-frame-pointer)
     add_link_options(-fsanitize=undefined)
 endif()
+
+
+#add_compile_options(-sPROXY_POSIX_SOCKETS -sUSE_PTHREADS -sPROXY_TO_PTHREAD -pthread)
+#add_link_options(-lwebsocket.js -sPROXY_POSIX_SOCKETS -sUSE_PTHREADS -sPROXY_TO_PTHREAD)
 
 # Lagom
 include(FetchContent)
@@ -62,6 +71,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets Network)
+#find_package(Threads REQUIRED)
 
 set(BROWSER_SOURCE_DIR ${SERENITY_SOURCE_DIR}/Userland/Applications/Browser/)
 
@@ -112,7 +122,18 @@ add_custom_target(debug
     USES_TERMINAL
 )
 
+# FIXME: Create custom Qt build with threading enabled
+#if (EMSCRIPTEN)
+#    target_link_libraries(ladybird PRIVATE Threads::Threads)
+#    target_link_options(ladybird PRIVATE -lwebsocket.js -sPROXY_POSIX_SOCKETS -sUSE_PTHREADS -sPROXY_TO_PTHREAD)
+#endif()
+
 qt_finalize_executable(ladybird)
+
+if (EMSCRIPTEN)
+    # Note: This needs to be after qt_finalize_executable, b/c Qt adds its own exported runtime methods
+    target_link_options(ladybird PUBLIC "SHELL:-s EXPORTED_RUNTIME_METHODS=specialHTMLTargets")
+endif()
 
 add_subdirectory(WebContent)
 add_dependencies(ladybird WebContent)

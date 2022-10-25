@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <qcoreapplication.h>
 #define AK_DONT_REPLACE_STD
 
 #include "../EventLoopPluginQt.h"
@@ -23,7 +24,7 @@
 #include <LibWeb/Loader/FrameLoader.h>
 #include <LibWeb/Loader/ResourceLoader.h>
 #include <LibWeb/WebSockets/WebSocket.h>
-#include <QGuiApplication>
+#include <QCoreApplication>
 #include <QSocketNotifier>
 #include <QTimer>
 #include <WebContent/ConnectionFromClient.h>
@@ -38,7 +39,7 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
     // FIXME: Refactor things so we can get rid of this somehow.
     Core::EventLoop event_loop;
 
-    QGuiApplication app(arguments.argc, arguments.argv);
+    QCoreApplication app(arguments.argc, arguments.argv);
 
     platform_init();
 
