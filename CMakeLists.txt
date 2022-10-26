@@ -57,6 +57,9 @@ get_filename_component(
 include(${Lagom_SOURCE_DIR}/../CMake/lagom_compile_options.cmake)
 add_compile_options(-Wno-expansion-to-defined)
 add_compile_options(-Wno-user-defined-literals)
+if (ANDROID)
+    add_compile_definitions(WEB_CONTENT_THREADED=1)
+endif()
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -98,10 +101,6 @@ set_target_properties(ladybird PROPERTIES
     WIN32_EXECUTABLE TRUE
 )
 
-if (ANDROID)
-    include(cmake/AndroidExtras.cmake)
-endif()
-
 add_custom_target(run
     COMMAND "${CMAKE_COMMAND}" -E env "SERENITY_SOURCE_DIR=${SERENITY_SOURCE_DIR}" "$<TARGET_FILE:ladybird>"
     USES_TERMINAL
@@ -112,10 +111,14 @@ add_custom_target(debug
     USES_TERMINAL
 )
 
-qt_finalize_executable(ladybird)
-
 add_subdirectory(WebContent)
 add_dependencies(ladybird WebContent)
+
+if (ANDROID)
+    include(cmake/AndroidExtras.cmake)
+endif()
+
+qt_finalize_executable(ladybird)
 
 if(NOT CMAKE_SKIP_INSTALL_RULES)
     include(cmake/InstallRules.cmake)

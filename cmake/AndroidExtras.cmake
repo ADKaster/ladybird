@@ -14,7 +14,7 @@ set_property(TARGET ladybird APPEND PROPERTY
 # Android-specific sources and libs
 #
 target_sources(ladybird PRIVATE AndroidPlatform.cpp)
-target_link_libraries(ladybird PRIVATE LibCompress LibArchive)
+target_link_libraries(ladybird PRIVATE LibCompress LibArchive WebContent LibWebView LibWebSocket LibWeb LibTimeZone)
 
 #
 # NDK and Qt don't ship OpenSSL for Android

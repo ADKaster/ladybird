@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <qthread.h>
 #define AK_DONT_REPLACE_STD
 
 #include "../EventLoopPluginQt.h"
@@ -28,19 +29,22 @@
 #include <QTimer>
 #include <WebContent/ConnectionFromClient.h>
 
+#ifdef WEB_CONTENT_THREADED
+#include "WebContentThread.h"
+#endif
+
 static ErrorOr<void> load_content_filters();
 
 extern String s_serenity_resource_root;
 
-ErrorOr<int> serenity_main(Main::Arguments arguments)
+static void web_platform_init()
 {
-    // NOTE: This is only used for the Core::Socket inside the IPC connection.
-    // FIXME: Refactor things so we can get rid of this somehow.
-    Core::EventLoop event_loop;
-
-    QGuiApplication app(arguments.argc, arguments.argv);
-
-    platform_init();
+#ifdef WEB_CONTENT_THREADED
+    static bool s_web_platform_initalized = false;
+    if (s_web_platform_initalized)
+        return;
+    s_web_platform_initalized = true;
+#endif
 
     Web::Platform::EventLoopPlugin::install(*new Ladybird::EventLoopPluginQt);
     Web::Platform::ImageCodecPlugin::install(*new Ladybird::ImageCodecPluginLadybird);
@@ -57,6 +61,24 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
     auto maybe_content_filter_error = load_content_filters();
     if (maybe_content_filter_error.is_error())
         dbgln("Failed to load content filters: {}", maybe_content_filter_error.error());
+}
+
+#ifdef WEB_CONTENT_THREADED
+ErrorOr<int> web_content_main(WebContentThread* context)
+#else
+ErrorOr<int> serenity_main(Main::Arguments arguments)
+#endif
+{
+    // NOTE: This is only used for the Core::Socket inside the IPC connection.
+    // FIXME: Refactor things so we can get rid of this somehow.
+    Core::EventLoop event_loop;
+
+#ifndef WEB_CONTENT_THREADED
+    QGuiApplication app(arguments.argc, arguments.argv);
+#endif
+
+    platform_init();
+    web_platform_init();
 
     auto client = TRY(IPC::take_over_accepted_client_from_system_server<WebContent::ConnectionFromClient>());
 
@@ -83,7 +105,11 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
 
     client->set_deferred_invoker(make<DeferredInvokerQt>());
 
+#ifndef WEB_CONTENT_THREADED
     return app.exec();
+#else
+    return context->exec_event_loop();
+#endif
 }
 
 static ErrorOr<void> load_content_filters()

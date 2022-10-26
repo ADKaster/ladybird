@@ -16,7 +16,12 @@ set(WEBCONTENT_SOURCES
     main.cpp
 )
 
-qt_add_executable(WebContent ${WEBCONTENT_SOURCES})
+if (ANDROID)
+    qt_add_library(WebContent STATIC ${WEBCONTENT_SOURCES})
+    target_sources(WebContent PRIVATE WebContentThread.cpp)
+else ()
+    qt_add_executable(WebContent ${WEBCONTENT_SOURCES})
+endif()
 
 target_include_directories(WebContent PRIVATE ${SERENITY_SOURCE_DIR}/Userland/Services/)
 target_include_directories(WebContent PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/..)

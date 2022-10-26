@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <qtmetamacros.h>
 #define AK_DONT_REPLACE_STD
 
 #include "WebContentView.h"
@@ -54,13 +55,17 @@
 #include <QTreeView>
 #include <QVBoxLayout>
 
+#ifdef WEB_CONTENT_THREADED
+#include "WebContent/WebContentThread.h"
+#endif
+
 WebContentView::WebContentView()
 {
     setMouseTracking(true);
 
     setFocusPolicy(Qt::FocusPolicy::StrongFocus);
 
-    m_inverse_pixel_scaling_ratio = 1.0 / devicePixelRatio();
+    m_inverse_pixel_scaling_ratio = 2.0 / devicePixelRatio();
 
     verticalScrollBar()->setSingleStep(24);
     horizontalScrollBar()->setSingleStep(24);
@@ -563,6 +568,14 @@ WebContentClient& WebContentView::client()
     return *m_client_state.client;
 }
 
+#ifdef WEB_CONTENT_THREADED
+void start_web_content_thread(QObject* parent)
+{
+    auto* web_content_thread = new WebContentThread(parent);
+    web_content_thread->start();
+}
+#endif
+
 void WebContentView::create_client()
 {
     m_client_state = {};
@@ -579,6 +592,7 @@ void WebContentView::create_client()
     int ui_fd_passing_fd = fd_passing_socket_fds[0];
     int wc_fd_passing_fd = fd_passing_socket_fds[1];
 
+#ifndef WEB_CONTENT_THREADED
     auto child_pid = fork();
     if (!child_pid) {
         MUST(Core::System::close(ui_fd_passing_fd));
@@ -600,6 +614,15 @@ void WebContentView::create_client()
 
     MUST(Core::System::close(wc_fd_passing_fd));
     MUST(Core::System::close(wc_fd));
+#else
+    auto takeover_string = String::formatted("x:{}", wc_fd);
+    MUST(Core::System::setenv("SOCKET_TAKEOVER"sv, takeover_string, true));
+
+    auto fd_passing_socket_string = String::formatted("{}", wc_fd_passing_fd);
+    MUST(Core::System::setenv("FD_PASSING_SOCKET"sv, fd_passing_socket_string, true));
+
+    start_web_content_thread(this);
+#endif
 
     auto socket = MUST(Core::Stream::LocalSocket::adopt_fd(ui_fd));
     MUST(socket->set_blocking(true));
