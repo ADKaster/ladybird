@@ -13,8 +13,16 @@ set_property(TARGET ladybird APPEND PROPERTY
 #
 # Android-specific sources and libs
 #
-target_sources(ladybird PRIVATE AndroidPlatform.cpp)
-target_link_libraries(ladybird PRIVATE LibCompress LibArchive WebContent LibWebView LibWebSocket LibWeb LibTimeZone)
+target_sources(ladybird PRIVATE
+   AndroidPlatform.cpp
+   WebContentServiceAndroid.cpp
+)
+target_sources(WebContent PRIVATE
+    AndroidPlatform.cpp
+    WebContent/WebContentThread.cpp
+)
+target_link_libraries(ladybird PRIVATE LibCompress LibArchive Qt::CorePrivate)
+target_link_libraries(WebContent PRIVATE LibCompress LibArchive Qt::CorePrivate)
 
 #
 # NDK and Qt don't ship OpenSSL for Android
@@ -27,7 +35,7 @@ FetchContent_Declare(android_openssl
     GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(android_openssl)
-set_property(TARGET ladybird APPEND PROPERTY QT_ANDROID_EXTRA_LIBS ${ANDROID_EXTRA_LIBS})
+set_property(TARGET ladybird APPEND PROPERTY QT_ANDROID_EXTRA_LIBS ${ANDROID_EXTRA_LIBS} ${CMAKE_BINARY_DIR}/WebContent/libWebContent_${ANDROID_ABI}.so)
 
 #
 # Copy resources into tarball for inclusion in /assets of APK

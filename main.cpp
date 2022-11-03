@@ -59,7 +59,6 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
     // NOTE: We only instantiate this to ensure that Gfx::FontDatabase has its default queries initialized.
     Gfx::FontDatabase::set_default_font_query("Katica 10 400 0");
     Gfx::FontDatabase::set_fixed_width_font_query("Csilla 10 400 0");
-
     StringView raw_url;
     Core::ArgsParser args_parser;
     args_parser.set_general_help("The Ladybird web browser :^)");

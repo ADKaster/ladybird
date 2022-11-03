@@ -18,6 +18,10 @@
 #include <QInputDialog>
 #include <QPlainTextEdit>
 
+#ifdef AK_OS_ANDROID
+#    include "WebContentServiceAndroid.h"
+#endif
+
 extern String s_serenity_resource_root;
 extern Browser::Settings* s_settings;
 
@@ -31,7 +35,6 @@ BrowserWindow::BrowserWindow()
     m_tabs_container->setTabBarAutoHide(true);
 
     auto* menu = menuBar()->addMenu("&File");
-
     auto* new_tab_action = new QAction("New &Tab", this);
     new_tab_action->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_T));
     menu->addAction(new_tab_action);
@@ -267,6 +270,10 @@ BrowserWindow::BrowserWindow()
     });
     QObject::connect(m_tabs_container, &QTabWidget::tabCloseRequested, this, &BrowserWindow::close_tab);
     QObject::connect(close_current_tab_action, &QAction::triggered, this, &BrowserWindow::close_current_tab);
+
+#ifdef AK_OS_ANDROID
+    new WebContentServiceAndroid(this);
+#endif
 
     new_tab();
 

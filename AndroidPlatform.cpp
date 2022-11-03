@@ -21,6 +21,8 @@
 
 #include <QCoreApplication>
 #include <QJniObject>
+//#include <QAndroidIntent>
+#include <QtCore/private/qandroidextras_p.h>
 #include <QSslSocket>
 
 #ifndef AK_OS_ANDROID

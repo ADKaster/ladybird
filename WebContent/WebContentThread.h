@@ -6,18 +6,17 @@
 
 #define AK_DONT_REPLACE_STD
 
+#include <LibCore/EventLoop.h>
 #include <QThread>
 
 class WebContentThread : public QThread
 {
     Q_OBJECT
 public:
-    WebContentThread(QObject* parent) : QThread(parent) {}
     virtual ~WebContentThread() override = default;
 
-    // Expose exec() to web_content_main
-    int exec_event_loop() { return exec(); }
+private:
+    virtual void run() override;
 
-protected:
-    void run() override;
+    Core::EventLoop m_event_loop;
 };

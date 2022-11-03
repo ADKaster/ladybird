@@ -57,14 +57,14 @@ get_filename_component(
 include(${Lagom_SOURCE_DIR}/../CMake/lagom_compile_options.cmake)
 add_compile_options(-Wno-expansion-to-defined)
 add_compile_options(-Wno-user-defined-literals)
-if (ANDROID)
-    add_compile_definitions(WEB_CONTENT_THREADED=1)
-endif()
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets Network)
+
+set(REQUIRED_QT_COMPONENTS Core Widgets Network)
+
+find_package(Qt6 REQUIRED COMPONENTS ${REQUIRED_QT_COMPONENTS})
 
 set(BROWSER_SOURCE_DIR ${SERENITY_SOURCE_DIR}/Userland/Applications/Browser/)
 

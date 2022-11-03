@@ -27,7 +27,10 @@ FontPluginQt::FontPluginQt()
     Gfx::FontDatabase::set_default_font_query("Katica 10 400 0");
     Gfx::FontDatabase::set_fixed_width_font_query("Csilla 10 400 0");
 
+    // FIXME: Figure out how to pass the fonts from the UI thread to the WebContentService
+#ifndef AK_OS_ANDROID
     update_generic_fonts();
+#endif
 
     auto default_font_name = generic_font_name(Web::Platform::GenericFont::UiSansSerif);
     m_default_font = Gfx::FontDatabase::the().get(default_font_name, 12.0, 400, 0);
@@ -109,7 +112,13 @@ void FontPluginQt::update_generic_fonts()
 
 String FontPluginQt::generic_font_name(Web::Platform::GenericFont generic_font)
 {
+#ifdef AK_OS_ANDROID
+    if (generic_font == Web::Platform::GenericFont::Monospace)
+        return "Csilla";
+    return "Katica"sv;
+#else
     return m_generic_font_names[static_cast<size_t>(generic_font)];
+#endif
 }
 
 }

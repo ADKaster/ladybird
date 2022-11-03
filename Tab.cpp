@@ -92,7 +92,7 @@ Tab::Tab(BrowserWindow* window)
     QObject::connect(m_view, &WebContentView::got_source, this, [this](AK::URL, QString const& source) {
         auto* text_edit = new QPlainTextEdit(this);
         text_edit->setWindowFlags(Qt::Window);
-        text_edit->setFont(QFontDatabase::systemFont(QFontDatabase::SystemFont::FixedFont));
+        //text_edit->setFont(QFontDatabase::systemFont(QFontDatabase::SystemFont::FixedFont));
         text_edit->resize(800, 600);
         text_edit->setPlainText(source);
         text_edit->show();

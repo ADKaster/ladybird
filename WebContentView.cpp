@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
-#include <qtmetamacros.h>
 #define AK_DONT_REPLACE_STD
 
 #include "WebContentView.h"
@@ -16,6 +15,7 @@
 #include <AK/Format.h>
 #include <AK/HashTable.h>
 #include <AK/LexicalPath.h>
+#include <AK/OwnPtr.h>
 #include <AK/NonnullOwnPtr.h>
 #include <AK/StringBuilder.h>
 #include <AK/Types.h>
@@ -55,8 +55,8 @@
 #include <QTreeView>
 #include <QVBoxLayout>
 
-#ifdef WEB_CONTENT_THREADED
-#include "WebContent/WebContentThread.h"
+#ifdef AK_OS_ANDROID
+#    include "WebContentServiceAndroid.h"
 #endif
 
 WebContentView::WebContentView()
@@ -568,14 +568,6 @@ WebContentClient& WebContentView::client()
     return *m_client_state.client;
 }
 
-#ifdef WEB_CONTENT_THREADED
-void start_web_content_thread(QObject* parent)
-{
-    auto* web_content_thread = new WebContentThread(parent);
-    web_content_thread->start();
-}
-#endif
-
 void WebContentView::create_client()
 {
     m_client_state = {};
@@ -592,7 +584,7 @@ void WebContentView::create_client()
     int ui_fd_passing_fd = fd_passing_socket_fds[0];
     int wc_fd_passing_fd = fd_passing_socket_fds[1];
 
-#ifndef WEB_CONTENT_THREADED
+#ifndef AK_OS_ANDROID
     auto child_pid = fork();
     if (!child_pid) {
         MUST(Core::System::close(ui_fd_passing_fd));
@@ -615,13 +607,8 @@ void WebContentView::create_client()
     MUST(Core::System::close(wc_fd_passing_fd));
     MUST(Core::System::close(wc_fd));
 #else
-    auto takeover_string = String::formatted("x:{}", wc_fd);
-    MUST(Core::System::setenv("SOCKET_TAKEOVER"sv, takeover_string, true));
-
-    auto fd_passing_socket_string = String::formatted("{}", wc_fd_passing_fd);
-    MUST(Core::System::setenv("FD_PASSING_SOCKET"sv, fd_passing_socket_string, true));
-
-    start_web_content_thread(this);
+    // NOTE: Java will close the fds by wrapping them a ParcelFileDescriptors
+    OwnPtr<AndroidClientState> android_data = WebContentServiceAndroid::the().add_client(wc_fd, wc_fd_passing_fd);
 #endif
 
     auto socket = MUST(Core::Stream::LocalSocket::adopt_fd(ui_fd));
@@ -652,6 +639,9 @@ void WebContentView::create_client()
             handle_web_content_process_crash();
         });
     };
+#ifdef AK_OS_ANDROID
+    m_client_state.android_state = android_data.release_nonnull();
+#endif
 
     client().async_update_system_theme(Gfx::load_system_theme(String::formatted("{}/res/themes/Default.ini", s_serenity_resource_root)));
     client().async_update_system_fonts(Gfx::FontDatabase::default_font_query(), Gfx::FontDatabase::fixed_width_font_query(), Gfx::FontDatabase::window_title_font_query());

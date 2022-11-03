@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
-#include <qthread.h>
 #define AK_DONT_REPLACE_STD
 
 #include "../EventLoopPluginQt.h"
@@ -29,23 +28,66 @@
 #include <QTimer>
 #include <WebContent/ConnectionFromClient.h>
 
-#ifdef WEB_CONTENT_THREADED
-#include "WebContentThread.h"
-#endif
-
+ErrorOr<void> start_web_content();
 static ErrorOr<void> load_content_filters();
 
 extern String s_serenity_resource_root;
 
-static void web_platform_init()
+#ifdef AK_OS_ANDROID
+#include "WebContentThread.h"
+//#   include <QAndroidService>
+#   include <QtCore/private/qandroidextras_p.h>
+
+class WebContentBinder : public QAndroidBinder
 {
-#ifdef WEB_CONTENT_THREADED
-    static bool s_web_platform_initalized = false;
-    if (s_web_platform_initalized)
-        return;
-    s_web_platform_initalized = true;
+public:
+    WebContentBinder() : QAndroidBinder() {}
+
+    ~WebContentBinder() {
+        m_thread->quit();
+        m_thread->wait();
+    }
+
+private:
+    virtual bool onTransact(int code, QAndroidParcel const& data, QAndroidParcel const& reply, QAndroidBinder::CallType flags) override
+    {
+        qDebug() << "WebContentBinder: onTransact(), code " << code << ", flags " << int(flags);
+
+        if (code != 1) {
+            qDebug() << "What is code " << code << "?";
+            return false;
+        }
+
+        auto parcel = data.handle();
+
+        QJniObject bundle = parcel.callMethod<jobject>("readBundle", "()Landroid/os/Bundle;");
+        QJniObject ipc_fd_handle = bundle.callMethod<jobject>("getParcelable", "(Ljava/lang/String;)Ljava/lang/Object", "IPC_SOCKET");
+        QJniObject fd_passing_fd_handle = bundle.callMethod<jobject>("getParcelable", "(Ljava/lang/String;)Ljava/lang/Object", "FD_PASSING_SOCKET");
+
+        int ipc_fd = ipc_fd_handle.callMethod<int>("detachFd");
+        int fd_passing_fd = fd_passing_fd_handle.callMethod<int>("detachFd");
+
+        auto takeover_string = String::formatted("x:{}", ipc_fd);
+        MUST(Core::System::setenv("SOCKET_TAKEOVER"sv, takeover_string, true));
+
+        auto fd_passing_socket_string = String::formatted("{}", fd_passing_fd);
+        MUST(Core::System::setenv("FD_PASSING_SOCKET"sv, fd_passing_socket_string, true));
+
+        m_thread = new WebContentThread;
+        m_thread->start();
+        QObject::connect(m_thread, &WebContentThread::finished, m_thread, &QObject::deleteLater);
+
+        reply.writeVariant("OK");
+        return true;
+    }
+
+    QThread* m_thread { nullptr };
+};
+
 #endif
 
+static void web_platform_init()
+{
     Web::Platform::EventLoopPlugin::install(*new Ladybird::EventLoopPluginQt);
     Web::Platform::ImageCodecPlugin::install(*new Ladybird::ImageCodecPluginLadybird);
 
@@ -63,31 +105,20 @@ static void web_platform_init()
         dbgln("Failed to load content filters: {}", maybe_content_filter_error.error());
 }
 
-#ifdef WEB_CONTENT_THREADED
-ErrorOr<int> web_content_main(WebContentThread* context)
-#else
-ErrorOr<int> serenity_main(Main::Arguments arguments)
-#endif
+ErrorOr<void> start_web_content()
 {
-    // NOTE: This is only used for the Core::Socket inside the IPC connection.
-    // FIXME: Refactor things so we can get rid of this somehow.
-    Core::EventLoop event_loop;
-
-#ifndef WEB_CONTENT_THREADED
-    QGuiApplication app(arguments.argc, arguments.argv);
-#endif
-
-    platform_init();
-    web_platform_init();
-
+    qDebug() << "TAKING OVER SOCKET";
     auto client = TRY(IPC::take_over_accepted_client_from_system_server<WebContent::ConnectionFromClient>());
+    qDebug() << "TOOK OVER SOCKET";
 
     auto* fd_passing_socket_spec = getenv("FD_PASSING_SOCKET");
+    qDebug() << "GRABBING MY FD PASSING SOCKET " << fd_passing_socket_spec;
     VERIFY(fd_passing_socket_spec);
     auto fd_passing_socket_spec_string = String(fd_passing_socket_spec);
     auto maybe_fd_passing_socket = fd_passing_socket_spec_string.to_int();
     VERIFY(maybe_fd_passing_socket.has_value());
 
+    qDebug() << "ADOPTING THE FD PASSING SOCKET " << maybe_fd_passing_socket.value();
     client->set_fd_passing_socket(TRY(Core::Stream::LocalSocket::adopt_fd(maybe_fd_passing_socket.value())));
 
     QSocketNotifier notifier(client->socket().fd().value(), QSocketNotifier::Type::Read);
@@ -105,11 +136,36 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
 
     client->set_deferred_invoker(make<DeferredInvokerQt>());
 
-#ifndef WEB_CONTENT_THREADED
-    return app.exec();
+    return {};
+}
+
+ErrorOr<int> serenity_main(Main::Arguments arguments)
+{
+
+    qDebug() << "HELLOOOO FROM WEBCONTENT";
+
+#ifdef AK_OS_ANDROID
+    QAndroidService app(arguments.argc, arguments.argv, [](QAndroidIntent const&) {
+        qDebug() << "onBind() for WebContent";
+        return new WebContentBinder;
+    });
 #else
-    return context->exec_event_loop();
+    // NOTE: This is only used for the Core::Socket inside the IPC connection.
+    // FIXME: Refactor things so we can get rid of this somehow.
+    Core::EventLoop event_loop;
+
+    QGuiApplication app(arguments.argc, arguments.argv);
 #endif
+
+    platform_init();
+    web_platform_init();
+
+#ifndef AK_OS_ANDROID
+    TRY(start_web_content());
+#endif
+
+    qDebug() << "WEB CONTENT EXECING";
+    return app.exec();
 }
 
 static ErrorOr<void> load_content_filters()

@@ -18,6 +18,7 @@ install(TARGETS ladybird
     DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
+if (NOT ANDROID)
 install(TARGETS WebContent
   EXPORT ladybirdTargets
   RUNTIME
@@ -26,7 +27,12 @@ install(TARGETS WebContent
   BUNDLE
     COMPONENT ladybird_Runtime
     DESTINATION bundle
+  LIBRARY
+    COMPONENT ladybird_Runtime
+    NAMELINK_COMPONENT ladybird_Development
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
+endif()
 
 include("${Lagom_SOURCE_DIR}/get_linked_lagom_libraries.cmake")
 get_linked_lagom_libraries(ladybird ladybird_lagom_libraries)

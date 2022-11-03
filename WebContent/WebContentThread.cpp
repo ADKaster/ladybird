@@ -10,14 +10,14 @@
 #include <AK/Error.h>
 #include <AK/Format.h>
 
-extern ErrorOr<int> web_content_main(WebContentThread* context);
+extern ErrorOr<void> start_web_content();
 
 void WebContentThread::run() {
-    auto err = web_content_main(this);
+    auto err = start_web_content();;
     if (err.is_error()) {
         warnln("WebContent failed with error: {}", err.error());
         exit(err.error().code());
     } else {
-        exit(err.value());
+        exit(exec());
     }
 }
